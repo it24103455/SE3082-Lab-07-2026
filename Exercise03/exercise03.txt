@@ -1,2 +1,18 @@
+Exercise 03 - Replace Send/Recv with Gather
+Source: sum_gather.c
 
-In Exercise 3, the manual MPI_Send and MPI_Recv operations used for collecting partial sums were replaced with MPI_Gather. Each process sent its local sum to the root process using a single collective communication call. The root process stored the gathered values in an array and computed the final total by summing all collected partial results. The program produced the correct result of 500000500000, confirming the successful use of MPI_Gather.
+The Send/Recv loop was replaced with MPI_Gather. Root collects all local sums
+into all_sums[] and adds them in a loop.
+
+Output (mpirun -np 4 ./sum_gather):
+
+Root filled array with values 1 to 1000000
+  Rank 0: local_sum = 31250125000
+  Rank 1: local_sum = 93750125000
+  Rank 2: local_sum = 156250125000
+  Rank 3: local_sum = 218750125000
+
+[Gather] Total sum   = 500000500000
+[Gather] Expected    = 500000500000
+[Gather] Correct?    = YES
+[Gather] Time        = 0.0031 sec

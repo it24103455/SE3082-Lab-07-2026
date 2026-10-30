@@ -1,44 +1,45 @@
-1. Comparison of All 6 Programs
+Exercise 07 - Summary Comparison
 
-Exercise	Collectives Used	     Memory Allocation	                                         Manual Summation on Root?	Final Result Available
-Exercise 1	MPI_Bcast	             Every process allocates the full array	                   Yes (MPI_Send/MPI_Recv)	Root only
-Exercise 2	MPI_Scatter	             Root allocates full array, others allocate only a chunk	   Yes (MPI_Send/MPI_Recv)	Root only
-Exercise 3	MPI_Scatter, MPI_Gather	     Root allocates full array, others allocate only a chunk	   Yes (sum gathered array)	Root only
-Exercise 4	MPI_Scatter, MPI_Reduce	     Root allocates full array, others allocate only a chunk	    No	                        Root only
-Exercise 5 	MPI_Scatter, MPI_Allreduce   Root allocates full array, others allocate only a chunk	    No	                        All processes
-Exercise 6	MPI_Scatter, MPI_Scan	     Root allocates full array, others allocate only a chunk	    No	                        Different result per rank (prefix sums)
+1. Comparison
 
-
-
-
-
-2. Run all 6 programs with 2, 4, and 8 processes
-
-Exercise	          2 Processes	4 Processes	8 Processes
-Broadcast + Send/Recv	  0.0387 s	0.0410 s	0.0343 s
-Scatter + Send/Recv	  0.0228 s	0.0188 s	0.0117 s
-Scatter + Gather	  0.0210 s	0.0183 s	0.0114 s
-Scatter + Reduce	  0.0214 s	0.0241 s	0.0196 s
-Scatter + Allreduce	  0.0213 s	0.0201 s	0.0176 s
-Scatter + Scan	          0.0192 s	0.0172 s	0.0092 s
+Program         | Collectives               | Memory                  | Manual sum on root | Result available
+----------------|---------------------------|-------------------------|--------------------|---------------------------
+sum_bcast       | MPI_Bcast + Send/Recv     | Full array on all       | Yes                | Root only
+sum_scatter     | MPI_Scatter + Send/Recv   | Full on root, chunk     | Yes                | Root only
+sum_gather      | MPI_Scatter, MPI_Gather   | Full on root, chunk     | Yes                | Root only
+sum_reduce      | MPI_Scatter, MPI_Reduce   | Full on root, chunk     | No                 | Root only
+sum_allreduce   | MPI_Scatter, MPI_Allreduce| Full on root, chunk     | No                 | All processes
+sum_scan        | MPI_Scatter, MPI_Scan     | Full on root, chunk     | No                 | Different per rank (last rank = total)
 
 
-Fastest Approach
-With 2 Processes => MPI_Scan = 0.0192 sec
-With 4 Processes => MPI_Scan = 0.0172 sec
-With 8 Processes => MPI_Scan = 0.0092 sec
-Overall Fastest  => Exercise 6 (MPI_Scan) with 0.0092 seconds using 8 processes.
+2. Execution times (seconds, median of 5 runs)
 
-Why?
-MPI_Scan achieves higher performance and scalability at scale because it divides work across processes and uses logarithmic, tree-based communication algorithms rather than linear point-to-point transfers (MPI_Send/MPI_Recv). By computing prefix reductions in parallel along a communication tree, it minimizes latency and message overhead compared to broadcasting large datasets (MPI_Bcast), which redundantly copies full data arrays to every rank, or scattering full arrays (MPI_Scatter), which still requires additional gather and coordination steps to calculate cumulative offsets.
+Program         | np=2   | np=4   | np=8
+----------------|--------|--------|-------
+sum_bcast       | 0.0028 | 0.0063 | 0.0137
+sum_scatter     | 0.0030 | 0.0033 | 0.0038
+sum_gather      | 0.0029 | 0.0033 | 0.0039
+sum_reduce      | 0.0033 | 0.0038 | 0.0043
+sum_allreduce   | 0.0027 | 0.0030 | 0.0037
+sum_scan        | 0.0036 | 0.0043 | 0.0066
+
+Fastest: sum_allreduce (Scatter-based versions are all close).
+Slowest: sum_bcast, and it gets worse as processes increase.
+
+Why: Bcast sends the full 1,000,000-element array to every process, so the
+data sent grows with the number of processes. Scatter sends each process
+only N/P elements, so total data stays about N. The collection step moves
+only one value per process, so Gather, Reduce and Allreduce differ very
+little at this size.
 
 
+3. When to use MPI_Scan instead of MPI_Allreduce
 
+Allreduce gives every process the same global value. Scan gives each
+process the total of everything up to its rank.
 
-
-
-3. Thinking question: In what situation would you choose MPI_Scan over MPI_Allreduce? Give a concrete example.
-
-MPI_Scan is selected over MPI_Allreduce when processes require individual cumulative results (prefix sums) based on their rank order rather than a single, uniform global value. While MPI_Allreduce combines data across all ranks and distributes the same total to every process, MPI_Scan computes a running partial reduction up to each process's rank. This makes MPI_Scan ideal for scenarios where operations depend on sequence or position across the distributed communicator.
-
-A common application of MPI_Scan is calculating dynamic file offsets or array indices during parallel write operations. For instance, if four processes generate 100, 150, 200, and 250 records respectively, MPI_Scan allows each rank to determine its precise starting location in a shared global output file (offsets 0, 100, 250, and 450) without overlap or extra communication overhead. In contrast, MPI_Allreduce would only provide the total count of 700 records to all processes, leaving them without the intermediate prefix information necessary to coordinate parallel file access, load balancing, or distributed indexing.
+Example: assigning unique global IDs to records spread across processes.
+If rank 0 has 120 records, rank 1 has 95 and rank 2 has 143, MPI_Scan on
+the counts gives 120, 215, 358. Each rank's starting ID is
+prefix - local_count (0, 120, 215). Allreduce would only give the total
+(358), which is not enough to know where each rank's IDs start.

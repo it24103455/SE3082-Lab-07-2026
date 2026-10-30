@@ -1,2 +1,18 @@
+Exercise 05 - Replace Reduce with Allreduce
+Source: sum_allreduce.c
 
-In Exercise 5, MPI_Reduce was replaced with MPI_Allreduce. This collective communication operation performs the reduction and distributes the final result to every process. Each process received the global total sum and calculated its percentage contribution to the final result. Rank 0 contributed 25% while Rank 1 contributed 75% of the total sum. The final result was 500000500000, matching the expected value and confirming the correct operation of MPI_Allreduce.
+MPI_Reduce was replaced with MPI_Allreduce. Every process gets the total and
+prints its percentage contribution.
+
+Output (mpirun -np 4 ./sum_allreduce):
+
+Root filled array with values 1 to 1000000
+  Rank 0: local_sum = 31250125000, total_sum = 500000500000, contribution = 6.25%
+  Rank 1: local_sum = 93750125000, total_sum = 500000500000, contribution = 18.75%
+  Rank 2: local_sum = 156250125000, total_sum = 500000500000, contribution = 31.25%
+  Rank 3: local_sum = 218750125000, total_sum = 500000500000, contribution = 43.75%
+
+[Allreduce] Total sum   = 500000500000
+[Allreduce] Expected    = 500000500000
+[Allreduce] Correct?    = YES
+[Allreduce] Time        = 0.0030 sec
